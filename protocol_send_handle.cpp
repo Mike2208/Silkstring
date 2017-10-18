@@ -11,7 +11,7 @@ namespace protocol_send_handle
 		: _Sender(Sender)
 	{}
 
-	void ProtocolModuleSendHandle::SendData(protocol_header_name_t DataHeaderName, protocol_vector_t &Data)
+	void ProtocolModuleSendHandle::SendData(module_message_connection_t DataHeaderName, protocol_vector_t &Data)
 	{
 		assert(this->_Sender != nullptr);
 
@@ -32,7 +32,7 @@ namespace protocol_send_handle
 		}
 	}
 
-	void ProtocolModuleSendHandle::SendData(protocol_header_name_t DataHeaderName, protocol_vector_t &&Data)
+	void ProtocolModuleSendHandle::SendData(module_message_connection_t DataHeaderName, protocol_vector_t &&Data)
 	{
 		auto tmpData = std::move(Data);
 		this->SendData(DataHeaderName, tmpData);
@@ -48,8 +48,8 @@ namespace protocol_send_handle
 		return this->_Sender;
 	}
 
-	void ProtocolModuleSendHandle::PrependHeaderNoResize(protocol_header_name_t HeaderName, protocol_vector_t &Data)
+	void ProtocolModuleSendHandle::PrependHeaderNoResize(module_message_connection_t HeaderName, protocol_vector_t &Data)
 	{
-		reinterpret_cast<protocol_header_t &>(Data.front()) = protocol_header_t(HeaderName, Data.size());
+		reinterpret_cast<protocol_header_t &>(Data.front()) = protocol_header_t(module_message_connection_t::GetHeaderName(HeaderName), Data.size());
 	}
 }

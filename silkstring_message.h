@@ -21,10 +21,11 @@ namespace silkstring_message
 
 	using thread_module_manager_multi_message::ThreadModuleManagerMultiMessage;
 
+	using message_list_size_t = size_t;
+
 	/*!
 	 *	\brief Identifier Type used by all modules
 	 */
-	//using identifier_t = uint32_t;
 	struct identifier_t
 	{
 		using type = uint32_t;
@@ -49,14 +50,6 @@ namespace silkstring_message
 			//if(*(reinterpret_cast<const type *>(this)) == *(reinterpret_cast<const type*>(&S)))
 			return *((const type*)this) == *((const type*)&S);
 		}
-
-//		identifier_t() = default;
-
-//		identifier_t(const identifier_t &S) = default;
-//		identifier_t &operator=(const identifier_t &S) = default;
-
-//		identifier_t(identifier_t &&S) = default;
-//		identifier_t &operator=(identifier_t &&S) = default;
 	};
 
 	/*!
@@ -66,7 +59,7 @@ namespace silkstring_message
 	struct message_t
 	{
 		using owner_t = bool;
-		using message_type_t = int16_t;
+		using message_type_t = uint16_t;
 
 		static constexpr owner_t ReceiverOwner	= 0;
 		static constexpr owner_t SenderOwner	= 1;
@@ -112,6 +105,8 @@ namespace silkstring_message
 	static constexpr message_queue::variadic_counter_t MessageDataNum = 3;
 
 	static constexpr message_t::message_type_t DefaultMessageType = 0;
+	static constexpr message_t::message_type_t UnusedMessageType = -1;
+	static constexpr message_t UnusedMessage(UnusedMessageType, 1);
 
 	static constexpr identifier_t::queue_id_t StartQueueID = 1;
 
@@ -258,42 +253,6 @@ namespace silkstring_message
 
 			return 0;
 		}
-
-//		static inline T *GetMessageDataCheckType(thread_multi_module_message_t &Data, const identifier_t::thread_id_t ThreadID)
-//		{
-//			const auto &messageType = Data.Get<MessageTypeNum>();
-//			if(messageType.MessageType == MessageType)
-//			{
-//				const identifier_t *pOwnerID;
-//				if(messageType.IsSenderMessageType())
-//					pOwnerID = &(Data.Get<MessageSenderIDNum>());
-//				else
-//					pOwnerID = &(Data.Get<MessageReceiverIDNum>());
-
-//				if(*pOwnerID == identifier_t(QueueID, ModuleID, ThreadID))
-//					return GetMessageData(Data);
-//			}
-
-//			return nullptr;
-//		}
-
-//		static inline const T *GetMessageDataCheckType(const thread_multi_module_message_t &Data, const identifier_t::thread_id_t ThreadID)
-//		{
-//			const auto &messageType = Data.Get<MessageTypeNum>();
-//			if(messageType.MessageType == MessageType)
-//			{
-//				const identifier_t *pOwnerID;
-//				if(messageType.IsSenderMessageType())
-//					pOwnerID = &(Data.Get<MessageSenderIDNum>());
-//				else
-//					pOwnerID = &(Data.Get<MessageReceiverIDNum>());
-
-//				if(*pOwnerID == identifier_t(QueueID, ModuleID, ThreadID))
-//					return GetMessageData(Data);
-//			}
-
-//			return nullptr;
-//		}
 	};
 
 	template<identifier_t::queue_id_t _QueueID, identifier_t::module_id_t _ModuleID, message_t::message_type_t _MessageType, class T>
@@ -341,16 +300,6 @@ namespace silkstring_message
 		{
 			return message_id_struct_t<_QueueID, _ModuleID, _MessageType, T>::CheckMessageDataType(Data, ThreadID);
 		}
-
-//		static inline T *GetMessageDataCheckType(thread_multi_module_message_t &Data)
-//		{
-//			return message_id_struct_t<_QueueID, _ModuleID, _MessageType, T>::GetMessageDataCheckType(Data, ThreadID);
-//		}
-
-//		static inline const T *GetMessageDataCheckType(const thread_multi_module_message_t &Data)
-//		{
-//			return message_id_struct_t<_QueueID, _ModuleID, _MessageType, T>::GetMessageDataCheckType(Data, ThreadID);
-//		}
 	};
 
 	template<identifier_t::queue_id_t _QueueID, identifier_t::module_id_t _ModuleID, identifier_t::thread_id_t _ThreadID, message_t::message_type_t _MessageType, class T>
@@ -388,6 +337,73 @@ namespace silkstring_message
 		explicit module_unregistration_message_t(identifier_t _ModuleID, thread_multi_module_shared_ptr_t *_ppReturnValue = nullptr);
 	};
 
+	//  -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	template<identifier_t::thread_id_t ThreadID, class ...ModuleStructs>
+	struct message_id_thread_struct_functions_t
+	{
+		static bool HandleMessage(thread_multi_module_message_t &Message);
+
+		struct message_thread_id_t
+		{
+			static constexpr identifier_t::thread_id_t SubThreadID = ThreadID;
+		};
+	};
+
+	template<class ...ModuleStructsAndFunctions>
+	struct message_id_thread_struct_functions_sub_t
+	{
+		static bool HandleMessage(thread_multi_module_message_t &)
+		{
+			return 0;
+		}
+	};
+
+	template<class CurThreadID, class CurModuleStruct, class CurModuleFunction, class ...ModuleStructsAndFunctions>
+	struct message_id_thread_struct_functions_sub_t<CurThreadID, CurModuleStruct, CurModuleFunction, ModuleStructsAndFunctions...>
+	{
+		static bool HandleMessage(thread_multi_module_message_t &Message)
+		{
+			if(CurModuleStruct::CheckMessageDataType(Message, CurThreadID::SubThreadID))
+			{
+				CurModuleFunction(Message);
+
+				return 1;
+			}
+			else
+				return message_id_thread_struct_functions_sub_t<CurThreadID, ModuleStructsAndFunctions...>::HandleMessage(Message);
+		}
+	};
+
+	template<identifier_t::thread_id_t ThreadID, class ...ModuleStructs>
+	bool message_id_thread_struct_functions_t<ThreadID, ModuleStructs...>::HandleMessage(thread_multi_module_message_t &Message)
+	{
+		return message_id_thread_struct_functions_sub_t<message_id_thread_struct_functions_t<ThreadID, ModuleStructs...>::message_thread_id_t, ModuleStructs...>::HandleMessage(Message);
+	}
+
+	template<class ...ModuleStructs>
+	struct message_struct_functions_t
+	{
+		static bool HandleMessage(thread_multi_module_message_t&)
+		{
+			return 0;
+		}
+	};
+
+	template<class CurModuleStruct, class CurModuleFunction, class ...ModuleStructsAndFunctions>
+	struct message_struct_functions_t<CurModuleStruct, CurModuleFunction, ModuleStructsAndFunctions...>
+	{
+		static bool HandleMessage(thread_multi_module_message_t &Message)
+		{
+			if(CurModuleStruct::CheckMessageDataType(Message))
+			{
+				CurModuleFunction(Message);
+
+				return 1;
+			}
+			else
+				return message_struct_functions_t<ModuleStructsAndFunctions...>::HandleMessage(Message);
+		}
+	};
 } // namespace silkstring_message
 
 #endif // SILKSTRING_MESSAGE_H

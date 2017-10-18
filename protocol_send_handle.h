@@ -8,6 +8,7 @@
 
 #include "protocol_vector.h"
 #include "protocol_data.h"
+#include "protocol_messages.h"
 
 /*!
  *  \brief Namespace for ProtocolSendHandle class
@@ -18,6 +19,8 @@ namespace protocol_send_handle
 	using protocol_data::protocol_header_t;
 	using protocol_data::protocol_header_name_t;
 	using protocol_data::protocol_header_size_t;
+
+	using protocol_messages::module_message_connection_t;
 
 	/*!
 	 * \brief The ProtocolSendHandle class
@@ -48,7 +51,7 @@ namespace protocol_send_handle
 			explicit ProtocolModuleSendHandle(ProtocolSendHandle *Sender);
 
 			template<class T>
-			void SendData(protocol_header_name_t DataHeaderName, T &&Data)
+			void SendData(module_message_connection_t DataHeaderName, T &&Data)
 			{
 				assert(this->_Sender != nullptr);
 
@@ -66,9 +69,9 @@ namespace protocol_send_handle
 				}
 			}
 
-			void SendData(protocol_header_name_t DataHeaderName, protocol_vector_t &Data);
+			void SendData(module_message_connection_t DataHeaderName, protocol_vector_t &Data);
 
-			void SendData(protocol_header_name_t DataHeaderName, protocol_vector_t &&Data);
+			void SendData(module_message_connection_t DataHeaderName, protocol_vector_t &&Data);
 
 			ProtocolSendHandle *GetSender();
 			const ProtocolSendHandle *GetSender() const;
@@ -77,7 +80,7 @@ namespace protocol_send_handle
 
 			ProtocolSendHandle *_Sender = nullptr;
 
-			static void PrependHeaderNoResize(protocol_header_name_t HeaderName, protocol_vector_t &Data);
+			static void PrependHeaderNoResize(module_message_connection_t HeaderName, protocol_vector_t &Data);
 	};
 } // namespace protocol_send_handle
 

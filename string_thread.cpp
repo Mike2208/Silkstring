@@ -3,7 +3,8 @@
 namespace string_thread
 {
 	StringThreadModuleRequests::StringThreadModuleRequests(StringThreadMemory &Memory)
-		: thread_multi_module_t(identifier_t(StringQueueID, GeneralModuleID, StringThreadID)), _Memory(Memory)
+		: thread_multi_module_t(identifier_t(StringQueueID, GeneralModuleID, StringThreadID)),
+		  _Memory(Memory)
 	{}
 
 	void StringThreadModuleRequests::HandleMessage(msg_struct_t &Message)

@@ -1,7 +1,9 @@
 TEMPLATE = app
-CONFIG += console c++11
+CONFIG += console c++1z
 CONFIG -= app_bundle
 CONFIG -= qt
+
+#INCLUDEPATH += /usr/include/c++/7.2.0/
 
 SOURCES += main.cpp \
     tls_connection.cpp \
@@ -55,7 +57,6 @@ SOURCES += main.cpp \
     protocol_messages.cpp \
     protocol_thread_memory.cpp \
     protocol_module_connection_state.cpp \
-    protocol_module_certificate_manager.cpp \
     protocol_module_tls_connection.cpp \
     protocol_connection_module.cpp \
     user_cli_thread_messages.cpp \
@@ -66,7 +67,7 @@ SOURCES += main.cpp \
     crypto_tls_certificate_credentials.cpp \
     string_thread_message.cpp \
     container_functions.cpp \
-    multi_container.cpp
+    silkstring_message_handler.cpp
 
 HEADERS += \
     typesafe_class.h \
@@ -124,7 +125,6 @@ HEADERS += \
     protocol_messages.h \
     protocol_thread_memory.h \
     protocol_module_connection_state.h \
-    protocol_module_certificate_manager.h \
     protocol_module_tls_connection.h \
     protocol_connection_module.h \
     debug_flag.h \
@@ -140,8 +140,8 @@ HEADERS += \
     string_thread_message.h \
     container_functions.h \
     string_user_admin_declaration.h \
-    multi_container.h \
-    testing_class_declaration.h
+    testing_class_declaration.h \
+    silkstring_message_handler.h
 
 unix|win32: LIBS += -lgnutls
 

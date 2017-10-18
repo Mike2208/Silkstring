@@ -26,18 +26,15 @@ namespace protocol_module_tls_connection
 	using std::mutex;
 	using std::function;
 
+	using namespace protocol_messages;
+
 	using crypto_tls_certificate_credentials::TLSCertificateCredentials;
 
 	using network_connection::NetworkConnection;
 
-	using namespace protocol_messages;
-
 	using protocol_module_instantiator::ProtocolModuleInstantiator;
 	using protocol_thread_memory::ProtocolThreadMemory;
 	using protocol_send_handle::ProtocolModuleSendHandle;
-
-	//using string_thread_messages::request_user_shared_ptr_t;
-	//using string_thread_messages::request_user_admin_shared_ptr_t;
 
 	using global_message_queue_thread::GlobalMessageQueueThread;
 
@@ -128,6 +125,8 @@ namespace protocol_module_tls_connection
 			 * 	\brief Constructor
 			 */
 			ProtocolModuleTLSConnection(ProtocolThreadMemory &Memory);
+
+			~ProtocolModuleTLSConnection();
 
 			void HandleMessage(msg_struct_t &Message);
 

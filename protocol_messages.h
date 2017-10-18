@@ -18,6 +18,8 @@
  */
 namespace protocol_messages
 {
+	using std::map;
+
 	using namespace silkstring_message;
 
 	using crypto_tls_certificate_credentials::TLSCertificateCredentials;
@@ -25,6 +27,7 @@ namespace protocol_messages
 	static constexpr identifier_t::queue_id_t ProtocolQueueID = StartQueueID + 1;
 
 	using protocol_data::protocol_header_name_t;
+	using protocol_data::EmptyModuleName;
 	using protocol_vector::protocol_vector_t;
 
 	using network_connection::connection_side_t;
@@ -32,6 +35,33 @@ namespace protocol_messages
 	using network_connection::SERVER_SIDE;
 
 	using string_user_id::StringUserID;
+
+	struct module_message_connection_t
+	{
+		using map_data_t = map<module_message_connection_t, protocol_header_name_t>;
+		static map_data_t ModuleHeaderMap;
+
+		identifier_t::module_id_t ModuleID;
+		message_t::message_type_t MessageType;
+
+		bool IsMessageType(const thread_multi_module_message_t &Message) const;
+
+		static protocol_header_name_t GetHeaderName(const thread_multi_module_message_t &Message);
+		static protocol_header_name_t GetHeaderName(module_message_connection_t Data);
+		static protocol_header_name_t GetHeaderName(identifier_t::module_id_t ModuleID, message_t::message_type_t MessageType);
+
+		module_message_connection_t(identifier_t::module_id_t _ModuleID, message_t::message_type_t _MessageType, protocol_header_name_t HeaderName);
+
+		bool operator==(const module_message_connection_t &S) const;
+		bool operator<(const module_message_connection_t &S) const;
+
+		constexpr module_message_connection_t(identifier_t::module_id_t _ModuleID, message_t::message_type_t _MessageType)
+			:	ModuleID(_ModuleID),
+				MessageType(_MessageType)
+		{}
+
+		private:
+	};
 
 	// Connection messages ---------------------------------------------------------------------------
 	static constexpr identifier_t::module_id_t ProtocolConnectionModuleID = StartModuleID+0;
@@ -104,31 +134,19 @@ namespace protocol_messages
 		PROTOCOL_STARTED = 0,
 
 		/*!
-		 *	\brief State where client sends its connection ID
+		 *	\brief Unsecured state
 		 */
-		PROTOCOL_CLIENT_CREDENTIAL_TRANSFER_STATE,
+		PROTOCOL_UNSECURE_CONNECTION_STATE,
 
 		/*!
-		 *	\brief State where protocol waits for user confirmation on registration of new ID.
-		 *
-		 *	Only happens when an unknown ID attempts to connect
+		 *	\brief State where TLS handshake is being performed
 		 */
-		PROTOCOL_CLIENT_REGISTRATION_STATE,
+		PROTOCOL_TLS_HANDSHAKE_STATE,
 
 		/*!
-		 *	\brief State where client verifies its ID by initiating a TLS connection
+		 *	\brief State after TLS handshake failed 5 times
 		 */
-		PROTOCOL_CLIENT_TLS_VERIFICATION_STATE,
-
-		/*!
-		 *	\brief Reverse of PROTOCOL_CLIENT_CREDENTIAL_TRANSFER_STATE state, server side sends its ID
-		 */
-		PROTOCOL_SERVER_CREDENTIALS_TRANSFER_STATE,
-
-		/*!
-		 *	\brief State where the server verifies itself by initiating a TLS connection
-		 */
-		PROTOCOL_SERVER_TLS_VERIFICATION_STATE,
+		PROTOCOL_TLS_HANDSHAKE_FAILED,
 
 		/*!
 		 *	\brief Secure connection established state
@@ -141,8 +159,9 @@ namespace protocol_messages
 		PROTOCOL_END_STATE
 	};
 
-	static constexpr protocol_header_name_t ProtocolConnectionStateChangeRequestHeader{{{'S', 'T', 'A'}}};
+	static constexpr protocol_header_name_t ProtocolConnectionStateChangeRequestHeader{{{'S', 'T', 'A'}}};	
 	static constexpr message_t::message_type_t ProtocolConnectionStateModuleStateChangeRequestMessageType = DefaultMessageType;
+	static module_message_connection_t ProtocolChangeStateConnection(ProtocolConnectionStateModuleID, ProtocolConnectionStateModuleStateChangeRequestMessageType, ProtocolConnectionStateChangeRequestHeader);
 	struct connection_state_change_request_t : public message_id_struct_t<ProtocolQueueID, ProtocolConnectionStateModuleID, ProtocolConnectionStateModuleStateChangeRequestMessageType, connection_state_change_request_t>
 	{
 		protocol_state_t NewState;
@@ -168,43 +187,12 @@ namespace protocol_messages
 	};
 	// ~Connection State messages --------------------------------------------------------------------------
 
-	// Certificate messages --------------------------------------------------------------------------------
-	static constexpr identifier_t::module_id_t ProtocolCertificateManagerModuleID = StartModuleID+3;
-
-	static constexpr message_t::message_type_t ProtocolCertificateManagerIDVerificationRequestMessageType = DefaultMessageType + 0;
-	static constexpr protocol_header_name_t ProtocolCertificateManagerIDVerificationRequestHeaderName{{{'V', 'E', 'R'}}};
-	struct id_verification_request_t : public message_id_struct_t<ProtocolQueueID, ProtocolCertificateManagerModuleID, ProtocolCertificateManagerIDVerificationRequestMessageType, id_verification_request_t>
-	{
-		/*!
-		 * \brief Check whether this ID is registered
-		 */
-		StringUserID IDToVerify;
-
-		id_verification_request_t(StringUserID _IDToVerify);
-	};
-
-
-	static constexpr message_t::message_type_t ProtocolCertificateManagerTLSCredentialsRequestMessageType = DefaultMessageType + 1;
-	struct certificate_tls_credentials_request_t : public message_id_struct_t<ProtocolQueueID, ProtocolCertificateManagerModuleID, ProtocolCertificateManagerTLSCredentialsRequestMessageType, certificate_tls_credentials_request_t>
-	{};
-
-	static constexpr message_t::message_type_t ProtocolCertificateManagerTLSCredentialsAnswerMessageType = DefaultMessageType + 2;
-	struct certificate_tls_credentials_answer_t : public message_id_struct_t<ProtocolQueueID, ProtocolCertificateManagerModuleID, ProtocolCertificateManagerTLSCredentialsAnswerMessageType, certificate_tls_credentials_answer_t>
-	{
-		TLSCertificateCredentials Credentials;
-
-		certificate_tls_credentials_answer_t(TLSCertificateCredentials &&_Credentials);
-	};
-	// ~Certificate messages -------------------------------------------------------------------------------
-
 	// TLS messages --------------------------------------------------------------------------------
-	static constexpr identifier_t::module_id_t ProtocolTLSConnectionModuleID = StartModuleID+4;
+	static constexpr identifier_t::module_id_t ProtocolTLSConnectionModuleID = StartModuleID+3;
 	static constexpr message_t::message_type_t ProtocolTLSConnectionReadDataUpdateMessageType = DefaultMessageType + 0;
 
-	/*!
-	 * \brief Update the read buffer with encrypted data received by peer
-	 */
 	static constexpr protocol_header_name_t ProtocolTLSConnectionReadDataUpdateHeaderName{{{'T', 'L', 'S'}}};
+	static module_message_connection_t ProtocolTLSConnectionReadDataUpdateConnection(ProtocolTLSConnectionModuleID, ProtocolTLSConnectionReadDataUpdateMessageType, ProtocolTLSConnectionReadDataUpdateHeaderName);
 	static constexpr message_t::message_type_t ProtocolTLSConnectionWriteDataUpdatedMessageType = DefaultMessageType + 1;
 	/*!
 	 * \brief New encrypted data is in write buffer for processing
@@ -232,18 +220,6 @@ namespace protocol_messages
 		bool Success;
 
 		tls_handshake_completed_t(bool _Success);
-	};
-
-	static constexpr message_t::message_type_t ProtocolTLSConnectionRequestAuthenticationIDMessageType = DefaultMessageType + 5;
-	struct tls_request_authentication_id_t : public message_id_struct_t<ProtocolQueueID, ProtocolTLSConnectionModuleID, ProtocolTLSConnectionRequestAuthenticationIDMessageType, tls_request_authentication_id_t>
-	{};
-
-	static constexpr message_t::message_type_t ProtocolTLSConnectionReceivedAuthenticationIDMessageType = DefaultMessageType + 6;
-	struct tls_received_authentication_id_t : public message_id_struct_t<ProtocolQueueID, ProtocolTLSConnectionModuleID, ProtocolTLSConnectionReceivedAuthenticationIDMessageType, tls_received_authentication_id_t>
-	{
-		StringUserID PeerID;
-
-		tls_received_authentication_id_t(StringUserID &&_PeerID);
 	};
 	// ~TLS messages -------------------------------------------------------------------------------
 } // namespace protocol_messages

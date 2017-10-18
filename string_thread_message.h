@@ -160,13 +160,12 @@ namespace string_thread_messages
 	};
 
 	using user_storage_ptr_t = unique_ptr<StringUserStorage>;
+	using user_request_data_t = SharedDynamicPointerTyped<	peer_authentication_data_t,
+															peer_verification_data_t>;
 
 	static constexpr message_t::message_type_t UserStorageRequestMessageType = DefaultMessageType + 2;
 	struct user_storage_request_t : public message_id_thread_struct_t<StringQueueID, UserRequestModuleID, StringThreadID, UserStorageRequestMessageType, user_storage_request_t>
 	{
-		using request_data_t = SharedDynamicPointerTyped<	peer_authentication_data_t,
-															peer_verification_data_t>;
-
 		using user_storage_ptr_t = string_thread_messages::user_storage_ptr_t;
 
 		/*!
@@ -177,9 +176,9 @@ namespace string_thread_messages
 		/*!
 		 * \brief Information defining request
 		 */
-		request_data_t RequestData;
+		user_request_data_t RequestData;
 
-		user_storage_request_t(user_storage_ptr_t &&_UserStorage, request_data_t _RequestData);
+		user_storage_request_t(user_storage_ptr_t &&_UserStorage, user_request_data_t &&_RequestData);
 	};
 
 	static constexpr message_t::message_type_t UserStorageAnswerMessageType = DefaultMessageType + 3;
@@ -191,7 +190,6 @@ namespace string_thread_messages
 		 * \brief User Storage to update
 		 */
 		user_storage_ptr_t UserStorage;
-
 
 		/*!
 		 * \brief Request that was answered

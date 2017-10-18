@@ -21,9 +21,9 @@ namespace string_thread_messages
 		: PeerID(std::move(_PeerID))
 	{}
 
-	user_storage_request_t::user_storage_request_t(user_storage_ptr_t &&_UserStorage, request_data_t _RequestData)
+	user_storage_request_t::user_storage_request_t(user_storage_ptr_t &&_UserStorage, user_request_data_t &&_RequestData)
 		: UserStorage(std::move(_UserStorage)),
-		  RequestData(_RequestData)
+		  RequestData(std::move(_RequestData))
 	{}
 
 	user_storage_answer_t::user_storage_answer_t(user_storage_ptr_t &&_UserStorage, user_storage_request_t &&_Request, bool _RequestGranted)

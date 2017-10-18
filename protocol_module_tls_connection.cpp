@@ -24,6 +24,12 @@ namespace protocol_module_tls_connection
 			this->_Memory.HeaderModuleMap.insert(element_pair);
 	}
 
+	ProtocolModuleTLSConnection::~ProtocolModuleTLSConnection()
+	{
+		// Make sure thread is stopped
+		this->_StopThread = true;
+	}
+
 	void ProtocolModuleTLSConnection::HandleMessage(msg_struct_t &Message)
 	{
 		if(received_data_t::CheckMessageDataType(Message, this->_Memory.ProtocolThreadID))
@@ -40,7 +46,7 @@ namespace protocol_module_tls_connection
 		else if(tls_write_data_updated_t::CheckMessageDataType(Message, this->_Memory.ProtocolThreadID))
 		{
 			// Send encrypted data to peer
-			this->_Memory.SendHandle.SendData(ProtocolTLSConnectionReadDataUpdateHeaderName, ProtocolModuleTLSConnection::MoveDataFromBuffer(this->_WriteBuffer, this->_BuffersLock));
+			this->_Memory.SendHandle.SendData(ProtocolTLSConnectionReadDataUpdateConnection, ProtocolModuleTLSConnection::MoveDataFromBuffer(this->_WriteBuffer, this->_BuffersLock));
 		}
 		else if(tls_input_data_update_t::CheckMessageDataType(Message, this->_Memory.ProtocolThreadID))
 		{
@@ -58,14 +64,6 @@ namespace protocol_module_tls_connection
 		else if(connection_state_change_distribution_t::CheckMessageDataType(Message, this->_Memory.ProtocolThreadID))
 		{
 			this->HandleStateUpdate(connection_state_change_distribution_t::GetMessageData(Message)->UpdatedState);
-		}
-		else if(certificate_tls_credentials_answer_t::CheckMessageDataType(Message, this->_Memory.ProtocolThreadID))
-		{
-			// TODO: Make sure both trust and key chains are in credentials
-			this->_KeyChainReceived = true;
-			this->_TrustChainReceived = true;
-
-			this->_Credentials = std::move(certificate_tls_credentials_answer_t::GetMessageData(Message)->Credentials);
 		}
 		else if(tls_handshake_completed_t::CheckMessageDataType(Message, this->_Memory.ProtocolThreadID))
 		{
@@ -85,35 +83,16 @@ namespace protocol_module_tls_connection
 				}
 				else
 				{
-					// Stop TLS thread and send credentials back to credentials manager if handshake failed
-					this->_Credentials = std::move(this->_TLSThread.GetResult());
-					this->_Memory.ProtocolThreadQueue->PushMessage(certificate_tls_credentials_answer_t::CreateMessageFromSender(this->_Memory.ProtocolThreadID, this->GetID(), certificate_tls_credentials_answer_t{std::move(this->_Credentials)}));
+					nextState = PROTOCOL_TLS_HANDSHAKE_FAILED;
 				}
 			}
-
-			// Determine next state
-			if(this->_Memory.State == PROTOCOL_CLIENT_TLS_VERIFICATION_STATE)
+			else
 			{
-				if(pData->Success)
-					nextState = PROTOCOL_SERVER_CREDENTIALS_TRANSFER_STATE;
-				else
-					nextState = PROTOCOL_STARTED;
-			}
-			else if(this->_Memory.State == PROTOCOL_SERVER_TLS_VERIFICATION_STATE)
-			{
-				if(pData->Success)
-					nextState = PROTOCOL_SECURE_CONNECTION_STATE;
-				else
-					nextState = PROTOCOL_STARTED;
+				nextState = PROTOCOL_SECURE_CONNECTION_STATE;
 			}
 
 			// Request state change
 			this->_Memory.GlobalQueue->PushMessage(connection_state_change_request_t::CreateMessageFromSender(this->_Memory.ProtocolThreadID, this->GetID(), {nextState}));
-		}
-		else if(certificate_tls_credentials_answer_t::CheckMessageDataType(Message, this->_Memory.ProtocolThreadID))
-		{
-			// Store new credentials
-			this->_Credentials = std::move(certificate_tls_credentials_answer_t::GetMessageData(Message)->Credentials);
 		}
 	}
 
@@ -134,38 +113,12 @@ namespace protocol_module_tls_connection
 				break;
 			}
 
-			case PROTOCOL_CLIENT_TLS_VERIFICATION_STATE:
+			case PROTOCOL_TLS_HANDSHAKE_STATE:
 			{
-				// Set correct connection side (client acts as TLS server, server as TLS client)
-				connection_side_t connectionSide;
 				if(this->_Memory.ConnectionSide == CLIENT_SIDE)
 				{
-					// Start thread, don't request peer identity
-					connectionSide = SERVER_SIDE;
+
 				}
-				else
-				{
-					// Start thread, don't reveal own identity yet
-					connectionSide = CLIENT_SIDE;
-				}
-
-				this->_HandshakeAttempts = 0;
-				this->_TLSThread(this, connectionSide, std::move(this->_Credentials));
-
-				break;
-			}
-
-			case PROTOCOL_SERVER_TLS_VERIFICATION_STATE:
-			{
-				// Set correct connection side (client acts as TLS client, server as TLS server)
-				const auto connectionSide = this->_Memory.ConnectionSide;
-
-				this->_HandshakeAttempts = 0;
-
-				// Start thread
-				this->_TLSThread(this, connectionSide, std::move(this->_Credentials));
-
-				break;
 			}
 
 			default:
